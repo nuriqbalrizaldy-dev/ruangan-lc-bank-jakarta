@@ -19,7 +19,7 @@ interface BookingFormViewProps {
   bookings: Booking[];
   rooms: Room[];
   layouts: LayoutConfig[];
-  onAddBooking: (booking: Omit<Booking, 'id'>) => number;
+  onAddBooking: (booking: Omit<Booking, 'id'>) => Promise<number | null>;
   onNavigate: (menu: NavigationMenu) => void;
   prefilledRoom?: string;
   prefilledTime?: string;
@@ -61,6 +61,7 @@ export const BookingFormView: React.FC<BookingFormViewProps> = ({
   const [errors, setErrors] = useState<string[]>([]);
   const [successBooking, setSuccessBooking] = useState<Booking | null>(null);
   const [copiedPass, setCopiedPass] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const floorRooms = rooms.filter((r) => r.floor === selectedFloor);
   const selectedRoomsList = floorRooms.filter((r) => selectedRoomNames.includes(r.name));
@@ -101,8 +102,9 @@ export const BookingFormView: React.FC<BookingFormViewProps> = ({
     setSelectedRoomNames([roomName || floorRooms[0]?.name || 'Think Room']);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setErrors([]);
     setSuccessBooking(null);
 
@@ -147,21 +149,37 @@ export const BookingFormView: React.FC<BookingFormViewProps> = ({
       return;
     }
 
-    // 3. Simpan data peminjaman
-    const newId = onAddBooking({
-      room_name: combinedRoomName,
-      room_names: selectedRoomNames,
-      floor: selectedFloor,
-      booking_date: bookingDate,
-      start_time: startTime,
-      end_time: endTime,
-      booker_name: bookerName.trim(),
-      work_unit: workUnit.trim(),
-      room_layout: roomLayout,
-      event_name: eventName.trim(),
-      participant_count: participantCount,
-      created_at: new Date().toISOString()
-    });
+    // 3. Simpan data peminjaman ke database (menunggu sampai selesai)
+    setIsSubmitting(true);
+    let newId: number | null = null;
+    try {
+      newId = await onAddBooking({
+        room_name: combinedRoomName,
+        room_names: selectedRoomNames,
+        floor: selectedFloor,
+        booking_date: bookingDate,
+        start_time: startTime,
+        end_time: endTime,
+        booker_name: bookerName.trim(),
+        work_unit: workUnit.trim(),
+        room_layout: roomLayout,
+        event_name: eventName.trim(),
+        participant_count: participantCount,
+        created_at: new Date().toISOString()
+      });
+    } catch (err) {
+      console.error('Gagal menyimpan booking', err);
+      newId = null;
+    } finally {
+      setIsSubmitting(false);
+    }
+
+    if (newId === null) {
+      setErrors([
+        'Booking tidak tersimpan. Jadwal mungkin baru saja diambil pengguna lain, atau koneksi internet bermasalah. Periksa jadwal terbaru lalu coba lagi.'
+      ]);
+      return;
+    }
 
     const newBookingObject: Booking = {
       id: newId,
@@ -702,13 +720,14 @@ export const BookingFormView: React.FC<BookingFormViewProps> = ({
         <div className="pt-4 border-t border-zinc-100 flex items-center justify-between">
           <div className="text-[11px] text-zinc-500 flex items-center gap-1.5 font-medium">
             <ShieldCheck className="w-4 h-4 text-orange-600" />
-            <span>Validasi bentrok query SQLite aktif otomatis sebelum menyimpan.</span>
+            <span>Validasi bentrok jadwal aktif otomatis sebelum menyimpan.</span>
           </div>
           <button
             type="submit"
-            className="px-6 py-2.5 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-all shadow-md shadow-red-600/30 active:scale-98"
+            disabled={isSubmitting}
+            className="px-6 py-2.5 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-all shadow-md shadow-red-600/30 active:scale-98 disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            Simpan & Konfirmasi Booking
+            {isSubmitting ? 'Menyimpan...' : 'Simpan & Konfirmasi Booking'}
           </button>
         </div>
       </form>
