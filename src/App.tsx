@@ -1,48 +1,65 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Building2, 
   CalendarDays, 
   PlusCircle, 
   BarChart3, 
-  RotateCcw,
   Menu,
   X,
   CheckCircle2,
+  AlertCircle,
   Sliders,
   Download
 } from 'lucide-react';
 import { Booking, NavigationMenu, Room, LayoutConfig, ROOMS_MASTER, INITIAL_LAYOUTS_CONFIG } from './types';
-import { generateInitialBookings } from './data/initialBookings';
 import { Sidebar } from './components/Sidebar';
 import { DashboardView } from './components/DashboardView';
 import { BookingFormView } from './components/BookingFormView';
 import { TimelineView } from './components/TimelineView';
 import { RoomsInfoView } from './components/RoomsInfoView';
 import { ManageRoomsView } from './components/ManageRoomsView';
+import { checkBookingCollision } from './utils/validation';
+import { supabase, isSupabaseConfigured } from './supabaseClient';
 
-const LOCAL_STORAGE_BOOKINGS_KEY = 'lc_room_bookings_v2';
+// Booking sekarang disimpan di Supabase (dibagi ke semua pengguna).
+// Data ruangan & layout masih disimpan per-browser seperti sebelumnya.
 const LOCAL_STORAGE_ROOMS_KEY = 'lc_rooms_master_v2';
 const LOCAL_STORAGE_LAYOUTS_KEY = 'lc_layouts_master_v2';
 
+// Memecah "Think Room + Big Room" menjadi ["Think Room", "Big Room"]
+function splitRoomNames(roomName: string): string[] {
+  return (roomName || '')
+    .split('+')
+    .map((n) => n.trim())
+    .filter(Boolean);
+}
+
+// Mengubah satu baris dari tabel Supabase menjadi objek Booking milik aplikasi
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToBooking(row: any): Booking {
+  const roomName: string = row.room_name ?? '';
+  return {
+    id: Number(row.id),
+    room_name: roomName,
+    room_names: splitRoomNames(roomName),
+    floor: Number(row.floor),
+    booking_date: row.booking_date,
+    start_time: row.start_time,
+    end_time: row.end_time,
+    booker_name: row.booker_name,
+    work_unit: row.work_unit ?? '',
+    room_layout: row.room_layout || 'Classroom',
+    event_name: row.event_name,
+    participant_count: Number(row.participant_count),
+    created_at: row.created_at
+  } as Booking;
+}
+
 export default function App() {
-  // 1. State Bookings
-  const [bookings, setBookings] = useState<Booking[]>(() => {
-    try {
-      const stored = localStorage.getItem(LOCAL_STORAGE_BOOKINGS_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map((item) => ({
-            ...item,
-            room_layout: item.room_layout || 'Classroom'
-          }));
-        }
-      }
-    } catch {
-      // fallback
-    }
-    return generateInitialBookings();
-  });
+  // 1. State Bookings (diambil dari Supabase)
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loadingBookings, setLoadingBookings] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // 2. State Rooms Master Data (bisa diedit nama & kapasitasnya)
   const [rooms, setRooms] = useState<Room[]>(() => {
@@ -79,15 +96,67 @@ export default function App() {
   const [prefilledDate, setPrefilledDate] = useState<string | undefined>(undefined);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Sync state to localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem(LOCAL_STORAGE_BOOKINGS_KEY, JSON.stringify(bookings));
-    } catch (e) {
-      console.error('Failed to save bookings to localStorage', e);
-    }
-  }, [bookings]);
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 3500);
+  };
 
+  // Ambil seluruh booking terbaru dari Supabase
+  const fetchBookings = useCallback(async () => {
+    if (!isSupabaseConfigured) {
+      setLoadError(
+        'Konfigurasi database belum terbaca. Pastikan VITE_SUPABASE_URL dan VITE_SUPABASE_PUBLISHABLE_KEY sudah diisi di Vercel, lalu Redeploy.'
+      );
+      setLoadingBookings(false);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('bookings')
+      .select('*')
+      .order('id', { ascending: false });
+
+    if (error) {
+      console.error('Gagal memuat booking dari Supabase', error);
+      setLoadError('Tidak dapat memuat jadwal dari database. Periksa koneksi internet Anda.');
+    } else {
+      setLoadError(null);
+      setBookings((data ?? []).map(rowToBooking));
+    }
+    setLoadingBookings(false);
+  }, []);
+
+  // Muat data saat aplikasi dibuka, lalu dengarkan perubahan secara langsung (realtime).
+  // Polling 30 detik dipasang sebagai cadangan kalau koneksi realtime terputus.
+  useEffect(() => {
+    fetchBookings();
+
+    if (!isSupabaseConfigured) {
+      return undefined;
+    }
+
+    const channel = supabase
+      .channel('bookings-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'bookings' },
+        () => {
+          fetchBookings();
+        }
+      )
+      .subscribe();
+
+    const timer = setInterval(fetchBookings, 30000);
+
+    return () => {
+      clearInterval(timer);
+      supabase.removeChannel(channel);
+    };
+  }, [fetchBookings]);
+
+  // Sync rooms & layouts ke localStorage (per-browser)
   useEffect(() => {
     try {
       localStorage.setItem(LOCAL_STORAGE_ROOMS_KEY, JSON.stringify(rooms));
@@ -104,26 +173,80 @@ export default function App() {
     }
   }, [layouts]);
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 3500);
+  // Simpan booking baru ke Supabase. Mengembalikan ID baru, atau null jika gagal.
+  const handleAddBooking = async (newBookingData: Omit<Booking, 'id'>): Promise<number | null> => {
+    // Cek ulang bentrok terhadap data TERBARU di database (kalau ada orang lain
+    // yang baru saja memesan ruangan yang sama beberapa detik lalu).
+    const { data: latest, error: latestError } = await supabase
+      .from('bookings')
+      .select('*')
+      .eq('booking_date', newBookingData.booking_date);
+
+    if (latestError) {
+      console.error('Gagal memeriksa jadwal terbaru', latestError);
+      showToast('Gagal terhubung ke database. Booking belum tersimpan, silakan coba lagi.');
+      return null;
+    }
+
+    const roomNames =
+      newBookingData.room_names && newBookingData.room_names.length > 0
+        ? newBookingData.room_names
+        : splitRoomNames(newBookingData.room_name);
+
+    const collision = checkBookingCollision(
+      (latest ?? []).map(rowToBooking),
+      roomNames,
+      newBookingData.booking_date,
+      newBookingData.start_time,
+      newBookingData.end_time
+    );
+
+    if (collision.hasCollision) {
+      showToast(collision.errorMessage || 'Jadwal bentrok dengan booking lain yang baru saja masuk.');
+      fetchBookings();
+      return null;
+    }
+
+    const { data, error } = await supabase
+      .from('bookings')
+      .insert({
+        room_name: newBookingData.room_name,
+        floor: newBookingData.floor,
+        booking_date: newBookingData.booking_date,
+        start_time: newBookingData.start_time,
+        end_time: newBookingData.end_time,
+        booker_name: newBookingData.booker_name,
+        work_unit: newBookingData.work_unit,
+        room_layout: newBookingData.room_layout || 'Classroom',
+        event_name: newBookingData.event_name,
+        participant_count: newBookingData.participant_count
+      })
+      .select()
+      .single();
+
+    if (error || !data) {
+      console.error('Gagal menyimpan booking ke Supabase', error);
+      showToast('Gagal menyimpan booking ke database. Silakan coba lagi.');
+      return null;
+    }
+
+    const saved = rowToBooking(data);
+    setBookings((prev) => (prev.some((b) => b.id === saved.id) ? prev : [saved, ...prev]));
+    showToast(`Peminjaman #${saved.id} (${saved.room_name}) berhasil disimpan!`);
+    return saved.id;
   };
 
-  const handleAddBooking = (newBookingData: Omit<Booking, 'id'>): number => {
-    const nextId = bookings.length > 0 ? Math.max(...bookings.map((b) => b.id)) + 1 : 1;
-    const newBooking: Booking = {
-      ...newBookingData,
-      id: nextId
-    };
-    setBookings((prev) => [newBooking, ...prev]);
-    showToast(`Peminjaman #${nextId} (${newBooking.room_name}) berhasil disimpan!`);
-    return nextId;
-  };
-
-  const handleDeleteBooking = (id: number) => {
+  const handleDeleteBooking = async (id: number) => {
     const target = bookings.find((b) => b.id === id);
+
+    const { error } = await supabase.from('bookings').delete().eq('id', id);
+
+    if (error) {
+      console.error('Gagal menghapus booking dari Supabase', error);
+      showToast('Gagal membatalkan peminjaman. Silakan coba lagi.');
+      return;
+    }
+
     setBookings((prev) => prev.filter((b) => b.id !== id));
     showToast(`Peminjaman ID #${id} ${target ? `(${target.room_name})` : ''} telah dibatalkan.`);
   };
@@ -156,19 +279,19 @@ export default function App() {
       })
     );
 
-    // Jika nama berubah dan user memilih cascade ke existing bookings
+    // Jika nama berubah dan user memilih cascade ke existing bookings (di database)
     if (updateExistingBookings && oldName !== newName) {
-      setBookings((prev) =>
-        prev.map((b) => {
-          if (b.room_name === oldName) {
-            return {
-              ...b,
-              room_name: newName
-            };
+      supabase
+        .from('bookings')
+        .update({ room_name: newName })
+        .eq('room_name', oldName)
+        .then(({ error }) => {
+          if (error) {
+            console.error('Gagal memperbarui nama ruangan pada booking', error);
+            showToast('Nama ruangan pada jadwal gagal diperbarui di database.');
           }
-          return b;
-        })
-      );
+          fetchBookings();
+        });
     }
 
     showToast(`Ruangan "${newName}" berhasil diperbarui (Kapasitas: ${newCapacity} orang).`);
@@ -259,17 +382,11 @@ export default function App() {
     return { success: true, message: `Layout "${target.name}" berhasil dihapus.` };
   };
 
-  // Handler: Reset semua master data ke default awal
+  // Handler: Reset master data ruangan & layout ke default awal (hanya di browser ini)
   const handleResetToDefaults = () => {
     setRooms(ROOMS_MASTER);
     setLayouts(INITIAL_LAYOUTS_CONFIG);
     showToast('Nama ruangan, kapasitas (20 orang), dan layout telah dikembalikan ke default.');
-  };
-
-  const handleResetData = () => {
-    const fresh = generateInitialBookings();
-    setBookings(fresh);
-    showToast('Data peminjaman direset ke contoh jadwal awal.');
   };
 
   const handleNavigateToBookingWithPrefill = (roomName: string, time: string, date?: string) => {
@@ -439,14 +556,6 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2.5">
-            <button
-              onClick={handleResetData}
-              title="Reset ke Jadwal Contoh"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-zinc-600 hover:text-black hover:bg-zinc-100 rounded-lg transition-colors font-semibold cursor-pointer"
-            >
-              <RotateCcw className="w-3.5 h-3.5 text-zinc-500" />
-              <span>Reset Data</span>
-            </button>
             <a
               href="/ruangan-lc-bank-jakarta.zip"
               download="ruangan-lc-bank-jakarta.zip"
@@ -461,6 +570,25 @@ export default function App() {
 
         {/* Viewport Content */}
         <div className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+          {loadError && (
+            <div className="mb-4 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-900">
+              <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+              <span className="flex-1 font-bold">{loadError}</span>
+              <button
+                onClick={fetchBookings}
+                className="font-bold text-red-700 hover:underline shrink-0"
+              >
+                Coba lagi
+              </button>
+            </div>
+          )}
+
+          {loadingBookings && !loadError && (
+            <div className="mb-4 text-xs font-semibold text-zinc-500">
+              Memuat jadwal dari database...
+            </div>
+          )}
+
           {currentMenu === 'dashboard' && (
             <DashboardView
               bookings={bookings}
