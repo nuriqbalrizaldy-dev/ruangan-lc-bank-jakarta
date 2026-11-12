@@ -9,7 +9,10 @@ import {
   ArrowRight,
   ShieldCheck,
   Copy,
-  Check
+  Check,
+  X,
+  Calendar,
+  Layers
 } from 'lucide-react';
 import { Booking, NavigationMenu, RoomLayout, Room, LayoutConfig } from '../types';
 import { checkBookingCollision, validateBookingForm } from '../utils/validation';
@@ -40,13 +43,13 @@ export const BookingFormView: React.FC<BookingFormViewProps> = ({
     ? rooms.find((r) => r.name === prefilledRoom) || rooms[0]
     : rooms[0];
 
-  const [selectedFloor, setSelectedFloor] = useState<2 | 3>(initialRoom?.floor || 2);
+  const [selectedFloor, setSelectedFloor] = useState<1 | 2 | 3>(initialRoom?.floor || 1);
   const [selectedRoomNames, setSelectedRoomNames] = useState<string[]>(() => {
     if (prefilledRoom) {
       return [prefilledRoom];
     }
-    const defaultRoom = rooms.find((r) => r.floor === (initialRoom?.floor || 2));
-    return defaultRoom ? [defaultRoom.name] : ['Think Room'];
+    const defaultRoom = rooms.find((r) => r.floor === (initialRoom?.floor || 1));
+    return defaultRoom ? [defaultRoom.name] : ['Ruang Meeting 1'];
   });
   const [bookingDate, setBookingDate] = useState<string>(prefilledDate || getTodayDateString(0));
   const [startTime, setStartTime] = useState<string>(prefilledTime || '09:00');
@@ -62,15 +65,16 @@ export const BookingFormView: React.FC<BookingFormViewProps> = ({
   const [successBooking, setSuccessBooking] = useState<Booking | null>(null);
   const [copiedPass, setCopiedPass] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   const floorRooms = rooms.filter((r) => r.floor === selectedFloor);
   const selectedRoomsList = floorRooms.filter((r) => selectedRoomNames.includes(r.name));
   
   // Total Kapasitas Gabungan dari semua ruangan terpilih di lantai yang sama
-  const combinedCapacity = selectedRoomsList.reduce((acc, curr) => acc + curr.capacity, 0) || 20;
+  const combinedCapacity = selectedRoomsList.reduce((acc, curr) => acc + curr.capacity, 0) || 8;
   const combinedRoomName = selectedRoomNames.join(' + ');
 
-  const handleFloorChange = (floor: 2 | 3) => {
+  const handleFloorChange = (floor: 1 | 2 | 3) => {
     setSelectedFloor(floor);
     const roomsOnNewFloor = rooms.filter((r) => r.floor === floor);
     if (roomsOnNewFloor.length > 0) {
@@ -102,7 +106,7 @@ export const BookingFormView: React.FC<BookingFormViewProps> = ({
     setSelectedRoomNames([roomName || floorRooms[0]?.name || 'Think Room']);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleInitialSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
     setErrors([]);
@@ -132,6 +136,7 @@ export const BookingFormView: React.FC<BookingFormViewProps> = ({
 
     if (formErrors.length > 0) {
       setErrors(formErrors);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
@@ -146,10 +151,16 @@ export const BookingFormView: React.FC<BookingFormViewProps> = ({
 
     if (collisionCheck.hasCollision) {
       setErrors([collisionCheck.errorMessage || 'Jadwal salah satu ruangan yang dipilih bentrok.']);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
-    // 3. Simpan data peminjaman ke database (menunggu sampai selesai)
+    // Lolos validasi -> Buka Pop-up Konfirmasi Ulang
+    setShowConfirmModal(true);
+  };
+
+  const handleFinalConfirmBooking = async () => {
+    if (isSubmitting) return;
     setIsSubmitting(true);
     let newId: number | null = null;
     try {
@@ -175,9 +186,11 @@ export const BookingFormView: React.FC<BookingFormViewProps> = ({
     }
 
     if (newId === null) {
+      setShowConfirmModal(false);
       setErrors([
         'Booking tidak tersimpan. Jadwal mungkin baru saja diambil pengguna lain, atau koneksi internet bermasalah. Periksa jadwal terbaru lalu coba lagi.'
       ]);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
@@ -196,11 +209,13 @@ export const BookingFormView: React.FC<BookingFormViewProps> = ({
       participant_count: participantCount
     };
 
+    setShowConfirmModal(false);
     setSuccessBooking(newBookingObject);
 
     setBookerName('');
     setWorkUnit('');
     setEventName('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleCopyPass = () => {
@@ -341,7 +356,7 @@ export const BookingFormView: React.FC<BookingFormViewProps> = ({
       )}
 
       {/* Booking Form Card */}
-      <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-6 space-y-6">
+      <form onSubmit={handleInitialSubmit} className="bg-white rounded-2xl border border-zinc-200 shadow-xs p-6 space-y-6">
         {/* Section 1: Lokasi & Ruangan */}
         <div className="space-y-4">
           <div className="flex items-center gap-2 text-xs font-bold text-zinc-950 uppercase tracking-wider pb-2 border-b border-zinc-100">
@@ -354,7 +369,18 @@ export const BookingFormView: React.FC<BookingFormViewProps> = ({
             <label className="block text-xs font-bold text-zinc-800 mb-1.5">
               Langkah 1: Pilih Lantai Gedung
             </label>
-            <div className="grid grid-cols-2 gap-3 max-w-md">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 max-w-xl">
+              <button
+                type="button"
+                onClick={() => handleFloorChange(1)}
+                className={`py-2 px-3 text-xs font-bold rounded-lg border transition-all text-center cursor-pointer ${
+                  selectedFloor === 1
+                    ? 'bg-red-600 text-white border-red-600 shadow-sm shadow-red-600/20'
+                    : 'bg-zinc-50 text-zinc-800 border-zinc-300 hover:bg-zinc-100'
+                }`}
+              >
+                🏢 Lantai 1 (Meeting 1 & 2)
+              </button>
               <button
                 type="button"
                 onClick={() => handleFloorChange(2)}
@@ -364,7 +390,7 @@ export const BookingFormView: React.FC<BookingFormViewProps> = ({
                     : 'bg-zinc-50 text-zinc-800 border-zinc-300 hover:bg-zinc-100'
                 }`}
               >
-                🏢 Lantai 2 (Think & Big Room)
+                🏢 Lantai 2 (Think & Big)
               </button>
               <button
                 type="button"
@@ -375,7 +401,7 @@ export const BookingFormView: React.FC<BookingFormViewProps> = ({
                     : 'bg-zinc-50 text-zinc-800 border-zinc-300 hover:bg-zinc-100'
                 }`}
               >
-                🏢 Lantai 3 (Competent, People, Great, Character)
+                🏢 Lantai 3 (Competent, People, etc)
               </button>
             </div>
             <p className="text-[11px] text-zinc-500 mt-1">
@@ -580,15 +606,8 @@ export const BookingFormView: React.FC<BookingFormViewProps> = ({
 
             {/* Layout Ruangan Field */}
             <div>
-              <label className="block text-xs font-bold text-zinc-800 mb-1.5 flex items-center justify-between">
-                <span>Layout Ruangan:</span>
-                <button
-                  type="button"
-                  onClick={() => onNavigate('manage')}
-                  className="text-[10px] text-red-600 hover:underline font-bold"
-                >
-                  + Kelola Layout
-                </button>
+              <label className="block text-xs font-bold text-zinc-800 mb-1.5">
+                Layout Ruangan:
               </label>
               <select
                 value={roomLayout}
@@ -646,91 +665,184 @@ export const BookingFormView: React.FC<BookingFormViewProps> = ({
               />
             </div>
           </div>
-
-          {/* Quick Visual Layout Cards Selection */}
-          <div className="pt-2">
-            <span className="text-[11px] font-semibold text-zinc-500 block mb-2">
-              Pratinjau & Pilihan Cepat Layout Ruangan:
-            </span>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              <button
-                type="button"
-                onClick={() => setRoomLayout('Classroom')}
-                className={`p-3 text-left rounded-xl border transition-all ${
-                  roomLayout === 'Classroom'
-                    ? 'border-red-600 bg-red-50/60 ring-1 ring-red-600'
-                    : 'border-zinc-200 bg-white hover:bg-zinc-50'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-bold text-zinc-900">🎓 Classroom</span>
-                  {roomLayout === 'Classroom' && (
-                    <span className="w-2 h-2 rounded-full bg-red-600"></span>
-                  )}
-                </div>
-                <p className="text-[11px] text-zinc-600">
-                  Meja & kursi berbaris menghadap proyektor/instruktur. Cocok untuk pelatihan teknis & sertifikasi.
-                </p>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setRoomLayout('U-Shape')}
-                className={`p-3 text-left rounded-xl border transition-all ${
-                  roomLayout === 'U-Shape'
-                    ? 'border-orange-600 bg-orange-50/60 ring-1 ring-orange-600'
-                    : 'border-zinc-200 bg-white hover:bg-zinc-50'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-bold text-zinc-900">🔄 U-Shape</span>
-                  {roomLayout === 'U-Shape' && (
-                    <span className="w-2 h-2 rounded-full bg-orange-600"></span>
-                  )}
-                </div>
-                <p className="text-[11px] text-zinc-600">
-                  Formasi meja tapal kuda (U). Memfasilitasi interaksi dua arah, diskusi mendalam & coaching.
-                </p>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setRoomLayout('Theater')}
-                className={`p-3 text-left rounded-xl border transition-all ${
-                  roomLayout === 'Theater'
-                    ? 'border-zinc-950 bg-zinc-100 ring-1 ring-zinc-950'
-                    : 'border-zinc-200 bg-white hover:bg-zinc-50'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-bold text-zinc-900">🎭 Theater (Teater)</span>
-                  {roomLayout === 'Theater' && (
-                    <span className="w-2 h-2 rounded-full bg-zinc-950"></span>
-                  )}
-                </div>
-                <p className="text-[11px] text-zinc-600">
-                  Hanya kursi berbaris tanpa meja. Optimal untuk seminar, presentasi umum & kapasitas maksimal.
-                </p>
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* Submit Button */}
         <div className="pt-4 border-t border-zinc-100 flex items-center justify-between">
           <div className="text-[11px] text-zinc-500 flex items-center gap-1.5 font-medium">
             <ShieldCheck className="w-4 h-4 text-orange-600" />
-            <span>Validasi bentrok jadwal aktif otomatis sebelum menyimpan.</span>
+            <span>Validasi bentrok jadwal aktif otomatis sebelum konfirmasi.</span>
           </div>
           <button
             type="submit"
             disabled={isSubmitting}
-            className="px-6 py-2.5 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-all shadow-md shadow-red-600/30 active:scale-98 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="px-6 py-2.5 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-all shadow-md shadow-red-600/30 active:scale-98 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
           >
-            {isSubmitting ? 'Menyimpan...' : 'Simpan & Konfirmasi Booking'}
+            {isSubmitting ? 'Memproses...' : 'Simpan & Konfirmasi Booking'}
           </button>
         </div>
       </form>
+
+      {/* Pop-up Modal Konfirmasi Ulang Peminjaman Ruangan */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl border border-zinc-200 max-w-lg w-full shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 flex flex-col max-h-[92vh]">
+            {/* Modal Header with Bank Jakarta Logo & Red-Orange Gradient */}
+            <div className="bg-gradient-to-r from-red-600 via-red-600 to-orange-500 p-5 text-white flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white p-1.5 flex items-center justify-center shadow-md shrink-0">
+                  <img 
+                    src="/assets/aistudio/Logo_Bank_Jakarta_new_OK_Logogram_6854f423.png" 
+                    alt="Bank Jakarta" 
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <div>
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-orange-200 block leading-tight">
+                    BANK JAKARTA · LEARNING CENTER
+                  </span>
+                  <h4 className="font-bold text-base leading-tight">Konfirmasi Ulang Reservasi</h4>
+                  <p className="text-xs text-orange-100 font-medium">Periksa kembali detail peminjaman sebelum disimpan</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => !isSubmitting && setShowConfirmModal(false)}
+                disabled={isSubmitting}
+                className="text-white/80 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors disabled:opacity-50 cursor-pointer"
+                title="Tutup"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body: Scrollable Summary */}
+            <div className="p-6 space-y-4 overflow-y-auto">
+              {/* Highlight Ruangan & Lantai */}
+              <div className="p-3.5 bg-orange-50/70 rounded-xl border border-orange-200 flex items-start gap-3">
+                <div className="w-9 h-9 rounded-lg bg-red-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-zinc-900 text-white font-mono">
+                      Lantai {selectedFloor}
+                    </span>
+                    {selectedRoomNames.length > 1 && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-orange-500 text-white shadow-2xs">
+                        🔗 Partisi Dibuka ({selectedRoomNames.length} Ruang Gabungan)
+                      </span>
+                    )}
+                  </div>
+                  <h5 className="font-bold text-sm text-zinc-950 truncate">
+                    {combinedRoomName}
+                  </h5>
+                  <p className="text-[11px] text-zinc-600 mt-0.5">
+                    Kapasitas Terbuka: <strong className="text-zinc-900 font-mono">{combinedCapacity} Orang</strong>
+                  </p>
+                </div>
+              </div>
+
+              {/* Rincian Ringkasan Jadwal */}
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between py-1.5 border-b border-zinc-100">
+                  <span className="text-zinc-500 flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Tanggal Kegiatan:</span>
+                  </span>
+                  <span className="font-mono font-bold text-zinc-900">{bookingDate}</span>
+                </div>
+
+                <div className="flex justify-between py-1.5 border-b border-zinc-100">
+                  <span className="text-zinc-500 flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Waktu / Jam:</span>
+                  </span>
+                  <span className="font-mono font-bold text-red-600">{startTime} - {endTime} WIB</span>
+                </div>
+
+                <div className="flex justify-between py-1.5 border-b border-zinc-100">
+                  <span className="text-zinc-500 flex items-center gap-1.5">
+                    <User className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Nama Peminjam:</span>
+                  </span>
+                  <span className="font-bold text-zinc-950 text-right">{bookerName}</span>
+                </div>
+
+                <div className="flex justify-between py-1.5 border-b border-zinc-100">
+                  <span className="text-zinc-500">Unit Kerja / Divisi:</span>
+                  <span className="font-semibold text-orange-600 text-right">{workUnit}</span>
+                </div>
+
+                <div className="flex justify-between py-1.5 border-b border-zinc-100">
+                  <span className="text-zinc-500 flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Layout Ruangan:</span>
+                  </span>
+                  <span className="font-bold text-zinc-900 bg-zinc-100 px-2 py-0.5 rounded text-[11px]">
+                    {roomLayout}
+                  </span>
+                </div>
+
+                <div className="flex justify-between py-1.5 border-b border-zinc-100">
+                  <span className="text-zinc-500 flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-zinc-400" />
+                    <span>Jumlah Peserta:</span>
+                  </span>
+                  <span className="font-bold text-zinc-950 font-mono">
+                    {participantCount} Orang <span className="text-zinc-400 font-normal">(Maks {combinedCapacity})</span>
+                  </span>
+                </div>
+
+                <div className="py-1.5">
+                  <span className="text-zinc-500 block mb-1">Agenda / Topik Kegiatan:</span>
+                  <div className="p-2.5 bg-zinc-50 rounded-lg border border-zinc-200 text-zinc-900 font-medium text-xs leading-relaxed">
+                    {eventName}
+                  </div>
+                </div>
+              </div>
+
+              {/* Informative Security/Collision Badge */}
+              <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200 text-[11px] text-zinc-600 flex items-start gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <span>
+                  Jadwal ini telah diverifikasi bebas bentrok. Klik tombol konfirmasi di bawah untuk mengunci reservasi ke sistem database.
+                </span>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="p-4 bg-zinc-50 border-t border-zinc-200 flex items-center justify-end gap-2.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowConfirmModal(false)}
+                disabled={isSubmitting}
+                className="px-4 py-2 text-xs font-semibold text-zinc-700 bg-white border border-zinc-300 hover:bg-zinc-100 hover:text-black rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                Periksa Kembali
+              </button>
+              <button
+                type="button"
+                onClick={handleFinalConfirmBooking}
+                disabled={isSubmitting}
+                className="inline-flex items-center gap-1.5 px-5 py-2 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-all shadow-md shadow-red-600/30 active:scale-98 disabled:opacity-60 cursor-pointer"
+              >
+                {isSubmitting ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                    <span>Menyimpan ke Database...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Ya, Konfirmasi & Simpan Jadwal</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

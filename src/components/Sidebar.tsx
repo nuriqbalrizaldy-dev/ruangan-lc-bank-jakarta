@@ -2,9 +2,7 @@ import React from 'react';
 import { 
   CalendarDays, 
   PlusCircle, 
-  BarChart3, 
-  Building2, 
-  Sliders
+  BarChart3
 } from 'lucide-react';
 import { NavigationMenu } from '../types';
 
@@ -35,16 +33,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id: 'timeline',
       label: 'Timeline Ketersediaan',
       icon: <BarChart3 className="w-4 h-4" />
-    },
-    {
-      id: 'manage',
-      label: 'Kelola Ruangan & Layout',
-      icon: <Sliders className="w-4 h-4" />
-    },
-    {
-      id: 'rooms',
-      label: 'Informasi Ruangan',
-      icon: <Building2 className="w-4 h-4" />
     }
   ];
 
@@ -115,7 +103,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             alt="Bank Jakarta" 
             className="w-3.5 h-3.5 object-contain"
           />
-          <span>Bank Jakarta LC</span>
+          <span>Learning Center Bank Jakarta</span>
         </div>
         <span className="text-orange-400 font-bold flex items-center gap-1">
           <span className="w-1.5 h-1.5 rounded-full bg-orange-500 inline-block"></span>

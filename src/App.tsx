@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  Building2, 
   CalendarDays, 
   PlusCircle, 
   BarChart3, 
@@ -8,7 +7,6 @@ import {
   X,
   CheckCircle2,
   AlertCircle,
-  Sliders,
   Download
 } from 'lucide-react';
 import { Booking, NavigationMenu, Room, LayoutConfig, ROOMS_MASTER, INITIAL_LAYOUTS_CONFIG } from './types';
@@ -16,8 +14,6 @@ import { Sidebar } from './components/Sidebar';
 import { DashboardView } from './components/DashboardView';
 import { BookingFormView } from './components/BookingFormView';
 import { TimelineView } from './components/TimelineView';
-import { RoomsInfoView } from './components/RoomsInfoView';
-import { ManageRoomsView } from './components/ManageRoomsView';
 import { checkBookingCollision } from './utils/validation';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 
@@ -61,13 +57,27 @@ export default function App() {
   const [loadingBookings, setLoadingBookings] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  // 2. State Rooms Master Data (bisa diedit nama & kapasitasnya)
+  // 2. State Rooms Master Data (kapasitas lantai 2 & 3: 25 orang, lantai 1: meeting 1 = 8, meeting 2 = 4)
   const [rooms, setRooms] = useState<Room[]>(() => {
     try {
       const stored = localStorage.getItem(LOCAL_STORAGE_ROOMS_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const hasFloor1 = parsed.some((r: Room) => r.floor === 1);
+          let currentList = parsed;
+          if (!hasFloor1) {
+            const floor1Rooms = ROOMS_MASTER.filter((r) => r.floor === 1);
+            currentList = [...floor1Rooms, ...parsed];
+          }
+          // Perbarui kapasitas lantai 2 dan 3 menjadi 25 orang sesuai konfigurasi master
+          return currentList.map((r: Room) => {
+            if (r.floor === 2 || r.floor === 3) {
+              return { ...r, capacity: 25 };
+            }
+            return r;
+          });
+        }
       }
     } catch {
       // fallback
@@ -477,30 +487,6 @@ export default function App() {
             <BarChart3 className="w-4 h-4" />
             <span>Timeline Ketersediaan</span>
           </button>
-          <button
-            onClick={() => {
-              setCurrentMenu('manage');
-              setMobileMenuOpen(false);
-            }}
-            className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-left ${
-              currentMenu === 'manage' ? 'bg-red-600 text-white' : 'text-zinc-300'
-            }`}
-          >
-            <Sliders className="w-4 h-4" />
-            <span>Kelola Ruangan & Layout</span>
-          </button>
-          <button
-            onClick={() => {
-              setCurrentMenu('rooms');
-              setMobileMenuOpen(false);
-            }}
-            className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-left ${
-              currentMenu === 'rooms' ? 'bg-red-600 text-white' : 'text-zinc-300'
-            }`}
-          >
-            <Building2 className="w-4 h-4" />
-            <span>Informasi Ruangan</span>
-          </button>
           <a
             href="/ruangan-lc-bank-jakarta.zip"
             download="ruangan-lc-bank-jakarta.zip"
@@ -550,8 +536,6 @@ export default function App() {
               {currentMenu === 'dashboard' && 'Jadwal & Dashboard'}
               {currentMenu === 'booking' && 'Booking Ruangan Baru'}
               {currentMenu === 'timeline' && 'Timeline Ketersediaan'}
-              {currentMenu === 'manage' && 'Kelola Ruangan & Layout'}
-              {currentMenu === 'rooms' && 'Master Data Ruangan'}
             </span>
           </div>
 
@@ -617,28 +601,6 @@ export default function App() {
               bookings={bookings}
               rooms={rooms}
               onNavigateToBookingWithPrefill={handleNavigateToBookingWithPrefill}
-            />
-          )}
-
-          {currentMenu === 'manage' && (
-            <ManageRoomsView
-              rooms={rooms}
-              layouts={layouts}
-              bookings={bookings}
-              onUpdateRoom={handleUpdateRoom}
-              onAddRoom={handleAddRoom}
-              onDeleteRoom={handleDeleteRoom}
-              onAddLayout={handleAddLayout}
-              onDeleteLayout={handleDeleteLayout}
-              onResetToDefaults={handleResetToDefaults}
-            />
-          )}
-
-          {currentMenu === 'rooms' && (
-            <RoomsInfoView
-              rooms={rooms}
-              onSelectRoomToBook={handleSelectRoomToBook}
-              onNavigateToManage={() => setCurrentMenu('manage')}
             />
           )}
         </div>

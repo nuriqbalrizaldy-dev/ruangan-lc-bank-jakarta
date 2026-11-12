@@ -51,7 +51,7 @@ export const ManageRoomsView: React.FC<ManageRoomsViewProps> = ({
 
   // State form tambah ruangan baru
   const [newRoomName, setNewRoomName] = useState<string>('');
-  const [newRoomFloor, setNewRoomFloor] = useState<2 | 3>(2);
+  const [newRoomFloor, setNewRoomFloor] = useState<1 | 2 | 3>(1);
   const [newRoomCapacity, setNewRoomCapacity] = useState<number>(20);
   const [newRoomDescription, setNewRoomDescription] = useState<string>('');
   const [newRoomFacilities, setNewRoomFacilities] = useState<string>('AC Sentral, Smart TV / Proyektor, High-Speed Wi-Fi');
@@ -245,6 +245,7 @@ export const ManageRoomsView: React.FC<ManageRoomsViewProps> = ({
     }, 4000);
   };
 
+  const floor1Rooms = rooms.filter((r) => r.floor === 1);
   const floor2Rooms = rooms.filter((r) => r.floor === 2);
   const floor3Rooms = rooms.filter((r) => r.floor === 3);
 
@@ -326,6 +327,48 @@ export const ManageRoomsView: React.FC<ManageRoomsViewProps> = ({
                 <span>Pilih Ruangan untuk Diedit:</span>
                 <span className="text-[11px] text-zinc-500 font-normal">Klik untuk memilih</span>
               </h3>
+
+              {/* Lantai 1 */}
+              {floor1Rooms.length > 0 && (
+                <div className="space-y-2 mb-4">
+                  <span className="text-[11px] font-bold text-zinc-900 bg-zinc-100 px-2 py-0.5 rounded border border-zinc-300 inline-block font-mono">
+                    LANTAI 1 ({floor1Rooms.length} Ruang)
+                  </span>
+                  <div className="space-y-1.5">
+                    {floor1Rooms.map((r) => {
+                      const isSelected = r.id === selectedRoom?.id;
+                      const bookingCount = bookings.filter((b) => b.room_name === r.name).length;
+                      return (
+                        <button
+                          key={r.id}
+                          type="button"
+                          onClick={() => handleSelectRoomForEdit(r)}
+                          className={`w-full p-3 rounded-lg border text-left transition-all flex items-center justify-between cursor-pointer ${
+                            isSelected
+                              ? 'bg-red-50/80 border-red-500 shadow-xs ring-1 ring-red-500'
+                              : 'bg-zinc-50/60 border-zinc-200 hover:bg-zinc-100'
+                          }`}
+                        >
+                          <div>
+                            <div className="text-xs font-bold text-zinc-950 flex items-center gap-1.5">
+                              <span>{r.name}</span>
+                              {isSelected && (
+                                <span className="w-2 h-2 rounded-full bg-red-600 inline-block"></span>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-zinc-500 mt-0.5">
+                              Kapasitas: <strong className="text-zinc-900">{r.capacity} Orang</strong>
+                            </div>
+                          </div>
+                          <span className="text-[10px] font-semibold text-zinc-600 bg-white px-2 py-0.5 rounded border border-zinc-200">
+                            {bookingCount} agenda
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Lantai 2 */}
               <div className="space-y-2 mb-4">
@@ -481,9 +524,10 @@ export const ManageRoomsView: React.FC<ManageRoomsViewProps> = ({
                     </label>
                     <select
                       value={newRoomFloor}
-                      onChange={(e) => setNewRoomFloor(Number(e.target.value) as 2 | 3)}
+                      onChange={(e) => setNewRoomFloor(Number(e.target.value) as 1 | 2 | 3)}
                       className="w-full px-3 py-2 text-xs bg-white border border-zinc-300 rounded-lg text-zinc-900 focus:outline-none focus:ring-2 focus:ring-red-500 font-bold"
                     >
+                      <option value={1}>Lantai 1</option>
                       <option value={2}>Lantai 2</option>
                       <option value={3}>Lantai 3</option>
                     </select>

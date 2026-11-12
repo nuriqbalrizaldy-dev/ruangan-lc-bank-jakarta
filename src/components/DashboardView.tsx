@@ -49,6 +49,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   // Filtered rooms options
   const availableRoomsForFilter = useMemo(() => {
+    if (filterFloor === '1') {
+      return rooms.filter((r) => r.floor === 1);
+    }
     if (filterFloor === '2') {
       return rooms.filter((r) => r.floor === 2);
     }
@@ -301,7 +304,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               }}
               className="w-full px-3 py-1.5 text-xs bg-zinc-50 border border-zinc-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-red-600"
             >
-              <option value="all">Semua Lantai (Lantai 2 & 3)</option>
+              <option value="all">Semua Lantai (Lantai 1, 2, & 3)</option>
+              <option value="1">Lantai 1 (Meeting 1 & 2)</option>
               <option value="2">Lantai 2 (Think, Big)</option>
               <option value="3">Lantai 3 (Competent, People, Great, Character)</option>
             </select>
@@ -487,10 +491,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </h3>
         </div>
         <p className="text-xs text-zinc-600 mb-3">
-          Jika suatu kegiatan pelatihan dibatalkan, silakan pilih nomor ID booking di bawah ini untuk menghapusnya dari sistem.
+          Jika suatu kegiatan pelatihan dibatalkan, silakan pilih nomor ID booking di bawah ini untuk melihat konfirmasi ulang sebelum dihapus dari sistem.
         </p>
 
-        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
           <select
             id="quick-delete-select"
             className="flex-1 px-3 py-2 text-xs bg-zinc-50 border border-zinc-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-red-600 max-w-xl font-medium"
@@ -499,7 +503,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               const val = e.target.value;
               if (val) {
                 const found = bookings.find((b) => b.id === Number(val));
-                if (found) setBookingToDelete(found);
+                if (found) {
+                  setBookingToDelete(found);
+                  e.target.value = '';
+                }
               }
             }}
           >
@@ -510,6 +517,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </option>
             ))}
           </select>
+          <span className="text-[11px] text-zinc-400 italic">
+            *Pop-up konfirmasi detail akan muncul otomatis untuk pengecekan ulang.
+          </span>
         </div>
       </div>
 
@@ -608,47 +618,103 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {/* Delete Confirmation Modal */}
       {bookingToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl border border-zinc-200 max-w-md w-full shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
-            <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto">
-              <AlertTriangle className="w-6 h-6" />
-            </div>
-            <div className="text-center">
-              <h4 className="text-base font-bold text-zinc-950">
-                Konfirmasi Pembatalan Jadwal
-              </h4>
-              <p className="text-xs text-zinc-600 mt-1">
-                Apakah Anda yakin ingin membatalkan peminjaman ini? Data yang dihapus tidak dapat dipulihkan.
-              </p>
-            </div>
-
-            <div className="p-3 bg-zinc-50 rounded-lg border border-zinc-200 text-xs space-y-1">
-              <p className="font-bold text-zinc-950">
-                ID #{bookingToDelete.id} - {bookingToDelete.room_name}
-              </p>
-              <p className="text-zinc-600">
-                {bookingToDelete.booking_date} | {bookingToDelete.start_time} - {bookingToDelete.end_time} WIB
-              </p>
-              <p className="text-zinc-800 font-medium truncate">
-                Agenda: {bookingToDelete.event_name}
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2 pt-2">
+          <div className="bg-white rounded-2xl border border-zinc-200 max-w-lg w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-red-600 to-rose-700 px-6 py-4 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center shrink-0 border border-white/20">
+                  <AlertTriangle className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h4 className="text-base font-bold leading-tight">
+                    Konfirmasi Pembatalan Jadwal
+                  </h4>
+                  <p className="text-xs text-red-100">
+                    Periksa kembali detail kegiatan sebelum menghapus
+                  </p>
+                </div>
+              </div>
               <button
+                type="button"
                 onClick={() => setBookingToDelete(null)}
-                className="flex-1 py-2 text-xs font-semibold text-zinc-700 bg-zinc-100 hover:bg-zinc-200 rounded-lg transition-colors"
+                className="text-white/80 hover:text-white p-1 rounded-md transition-colors cursor-pointer"
+                aria-label="Tutup"
               >
-                Kembali
+                <X className="w-5 h-5" />
               </button>
-              <button
-                onClick={() => {
-                  onDeleteBooking(bookingToDelete.id);
-                  setBookingToDelete(null);
-                }}
-                className="flex-1 py-2 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
-              >
-                Hapus Jadwal
-              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4">
+              <div className="p-3 bg-red-50/80 border border-red-200 rounded-xl text-xs text-red-900 leading-relaxed">
+                <span className="font-bold">⚠️ Perhatian:</span> Anda akan membatalkan dan menghapus reservasi ruangan ini dari jadwal gedung. Ruangan akan langsung terbuka kembali bagi pengguna lain.
+              </div>
+
+              {/* Rincian Kegiatan yang akan dihapus */}
+              <div className="border border-zinc-200 rounded-xl overflow-hidden text-xs">
+                <div className="bg-zinc-50 px-4 py-2.5 border-b border-zinc-200 flex justify-between items-center">
+                  <span className="text-zinc-500 font-semibold font-mono">NOMOR RESERVASI</span>
+                  <span className="font-bold text-red-600 font-mono text-sm">#{bookingToDelete.id}</span>
+                </div>
+                <div className="divide-y divide-zinc-100 p-4 space-y-2">
+                  <div className="flex justify-between py-1">
+                    <span className="text-zinc-500">Ruangan:</span>
+                    <span className="font-bold text-zinc-950 text-right">
+                      {bookingToDelete.room_name} <span className="text-zinc-500 font-normal">(Lantai {bookingToDelete.floor})</span>
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-1">
+                    <span className="text-zinc-500">Tanggal:</span>
+                    <span className="font-mono font-bold text-zinc-900">{bookingToDelete.booking_date}</span>
+                  </div>
+                  <div className="flex justify-between py-1">
+                    <span className="text-zinc-500">Waktu / Jam:</span>
+                    <span className="font-mono font-bold text-red-600">{bookingToDelete.start_time} - {bookingToDelete.end_time} WIB</span>
+                  </div>
+                  <div className="flex justify-between py-1">
+                    <span className="text-zinc-500">Nama Agenda:</span>
+                    <span className="font-bold text-zinc-950 text-right max-w-[260px] truncate" title={bookingToDelete.event_name}>
+                      {bookingToDelete.event_name}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-1">
+                    <span className="text-zinc-500">Peminjam:</span>
+                    <span className="font-semibold text-zinc-900">{bookingToDelete.booker_name}</span>
+                  </div>
+                  <div className="flex justify-between py-1">
+                    <span className="text-zinc-500">Unit Kerja:</span>
+                    <span className="font-bold text-orange-600">{bookingToDelete.work_unit || '-'}</span>
+                  </div>
+                  <div className="flex justify-between py-1">
+                    <span className="text-zinc-500">Layout & Peserta:</span>
+                    <span className="text-zinc-900 font-medium">
+                      {bookingToDelete.room_layout || 'Classroom'} · {bookingToDelete.participant_count} Orang
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setBookingToDelete(null)}
+                  className="flex-1 py-2.5 px-4 text-xs font-bold text-zinc-700 bg-zinc-100 hover:bg-zinc-200 rounded-lg transition-colors cursor-pointer"
+                >
+                  Batal / Kembali
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onDeleteBooking(bookingToDelete.id);
+                    setBookingToDelete(null);
+                  }}
+                  className="flex-1 py-2.5 px-4 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors shadow-sm shadow-red-600/30 cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Ya, Hapus Jadwal</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

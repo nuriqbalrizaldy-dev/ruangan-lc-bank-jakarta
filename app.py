@@ -110,12 +110,14 @@ def init_db():
         cursor.execute("SELECT COUNT(*) FROM rooms")
         if cursor.fetchone()[0] == 0:
             initial_rooms = [
-                ("Think Room", 2, 20, "Ruang diskusi intensif, perumusan ide, dan brainstorming tim inovasi."),
-                ("Big Room", 2, 20, "Ruang pelatihan utama dengan tata ruang fleksibel untuk workshop dan presentasi."),
-                ("Competent Room", 3, 20, "Ruang sertifikasi kompetensi, pelatihan asesmen, dan uji keterampilan profesional."),
-                ("People Room", 3, 20, "Ruang pelatihan interpersonal skill, sesi coaching, dan pelatihan human capital."),
-                ("Great Room", 3, 20, "Ruang seminar eksekutif, rapat koordinasi pimpinan, dan briefing strategis."),
-                ("Character Room", 3, 20, "Ruang pembinaan budaya kerja, program orientasi pegawai, dan focus group.")
+                ("Ruang Meeting 1", 1, 8, "Ruang rapat kolaboratif tim lantai 1 untuk rapat koordinasi, diskusi proyek internal, dan presentasi."),
+                ("Ruang Meeting 2", 1, 4, "Ruang meeting privat lantai 1 ideal untuk one-on-one, interview, dan koordinasi cepat tim kecil."),
+                ("Think Room", 2, 25, "Ruang diskusi intensif, perumusan ide, dan brainstorming tim inovasi."),
+                ("Big Room", 2, 25, "Ruang pelatihan utama dengan tata ruang fleksibel untuk workshop dan presentasi."),
+                ("Competent Room", 3, 25, "Ruang sertifikasi kompetensi, pelatihan asesmen, dan uji keterampilan profesional."),
+                ("People Room", 3, 25, "Ruang pelatihan interpersonal skill, sesi coaching, dan pelatihan human capital."),
+                ("Great Room", 3, 25, "Ruang seminar eksekutif, rapat koordinasi pimpinan, dan briefing strategis."),
+                ("Character Room", 3, 25, "Ruang pembinaan budaya kerja, program orientasi pegawai, dan focus group.")
             ]
             cursor.executemany("INSERT INTO rooms (name, floor, capacity, description) VALUES (?, ?, ?, ?)", initial_rooms)
 
@@ -308,9 +310,7 @@ with st.sidebar:
         options=[
             "📅 Jadwal & Dashboard", 
             "📝 Booking Ruangan Baru", 
-            "📊 Timeline Ketersediaan", 
-            "⚙️ Kelola Ruangan & Layout",
-            "ℹ️ Informasi Ruangan"
+            "📊 Timeline Ketersediaan"
         ],
         index=0
     )

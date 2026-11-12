@@ -5,7 +5,7 @@
 export interface Room {
   id: string;
   name: string;
-  floor: 2 | 3;
+  floor: 1 | 2 | 3;
   capacity: number;
   description: string;
   facilities: string[];
@@ -45,12 +45,29 @@ export interface Booking {
 }
 
 export const ROOMS_MASTER: Room[] = [
+  // Lantai 1
+  {
+    id: 'meeting-room-1',
+    name: 'Ruang Meeting 1',
+    floor: 1,
+    capacity: 8,
+    description: 'Ruang rapat koordinasi unit kerja, presentasi internal, dan diskusi terarah.',
+    facilities: ['Smart TV 55"', 'Whiteboard Kaca', 'Video Conference Cam', 'AC Sentral', 'High-Speed Wi-Fi']
+  },
+  {
+    id: 'meeting-room-2',
+    name: 'Ruang Meeting 2',
+    floor: 1,
+    capacity: 4,
+    description: 'Ruang rapat terbatas, wawancara khusus, dan diskusi privat.',
+    facilities: ['Display Monitor 43"', 'Whiteboard Kaca', 'AC Sentral', 'Ergonomic Chairs', 'Power Socket per Meja']
+  },
   // Lantai 2
   {
     id: 'think-room',
     name: 'Think Room',
     floor: 2,
-    capacity: 20,
+    capacity: 25,
     description: 'Ruang diskusi intensif, perumusan ide, dan brainstorming tim inovasi.',
     facilities: ['Smart TV 65"', 'Whiteboard Kaca', 'Video Conference Cam', 'AC Sentral', 'High-Speed Wi-Fi']
   },
@@ -58,7 +75,7 @@ export const ROOMS_MASTER: Room[] = [
     id: 'big-room',
     name: 'Big Room',
     floor: 2,
-    capacity: 20,
+    capacity: 25,
     description: 'Ruang pelatihan utama dengan tata ruang fleksibel untuk workshop dan presentasi teknis.',
     facilities: ['Proyektor HD Laser', 'Sound System & Mic Wireless', 'Flipchart', 'AC Sentral', 'Power Outlet per Meja']
   },
@@ -67,7 +84,7 @@ export const ROOMS_MASTER: Room[] = [
     id: 'competent-room',
     name: 'Competent Room',
     floor: 3,
-    capacity: 20,
+    capacity: 25,
     description: 'Ruang sertifikasi kompetensi, pelatihan asesmen, dan uji keterampilan profesional.',
     facilities: ['Proyektor Full HD', 'Podium Pengajar', 'Dual Screen Display', 'AC Sentral', 'Ergonomic Chairs']
   },
@@ -75,7 +92,7 @@ export const ROOMS_MASTER: Room[] = [
     id: 'people-room',
     name: 'People Room',
     floor: 3,
-    capacity: 20,
+    capacity: 25,
     description: 'Ruang pelatihan interpersonal skill, sesi coaching, dan pelatihan human capital.',
     facilities: ['Smart Board Interaktif', 'Microphone Condenser', 'Sofa & Roundtable Area', 'AC Sentral']
   },
@@ -83,7 +100,7 @@ export const ROOMS_MASTER: Room[] = [
     id: 'great-room',
     name: 'Great Room',
     floor: 3,
-    capacity: 20,
+    capacity: 25,
     description: 'Ruang seminar eksekutif, rapat koordinasi pimpinan, dan briefing strategis.',
     facilities: ['Video Wall 4K', 'Boundary Microphone System', 'Executive Leather Seats', 'AC Sentral']
   },
@@ -91,10 +108,10 @@ export const ROOMS_MASTER: Room[] = [
     id: 'character-room',
     name: 'Character Room',
     floor: 3,
-    capacity: 20,
+    capacity: 25,
     description: 'Ruang pembinaan budaya kerja, program orientasi pegawai baru, dan sesi konseling.',
     facilities: ['Projector Screen', 'Circle Discussion Layout', 'Whiteboard Wall', 'AC Sentral']
   }
 ];
 
-export type NavigationMenu = 'dashboard' | 'booking' | 'timeline' | 'rooms' | 'manage';
+export type NavigationMenu = 'dashboard' | 'booking' | 'timeline';

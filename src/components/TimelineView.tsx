@@ -43,7 +43,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
 }) => {
   // Selalu diinisialisasi pada hari Senin dari minggu saat ini
   const [currentMonday, setCurrentMonday] = useState<Date>(() => getMonday(new Date()));
-  const [selectedFloorTab, setSelectedFloorTab] = useState<'all' | '2' | '3'>('all');
+  const [selectedFloorTab, setSelectedFloorTab] = useState<'all' | '1' | '2' | '3'>('all');
   const [selectedDayDetails, setSelectedDayDetails] = useState<{ room: string; date: string; bookings: Booking[] } | null>(null);
 
   // Buat 7 hari persis per-minggu (Senin s.d. Minggu)
@@ -107,6 +107,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
 
   const allRooms = rooms || ROOMS_MASTER;
   const roomsToShow = useMemo(() => {
+    if (selectedFloorTab === '1') return allRooms.filter((r) => r.floor === 1);
     if (selectedFloorTab === '2') return allRooms.filter((r) => r.floor === 2);
     if (selectedFloorTab === '3') return allRooms.filter((r) => r.floor === 3);
     return allRooms;
@@ -242,22 +243,32 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
       </div>
 
       {/* Floor Filter Tabs */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs font-semibold text-zinc-600">Filter Lantai:</span>
-        <div className="inline-flex p-1 bg-zinc-100 rounded-lg">
+        <div className="inline-flex flex-wrap p-1 bg-zinc-100 rounded-lg gap-1">
           <button
             onClick={() => setSelectedFloorTab('all')}
-            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${
+            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors cursor-pointer ${
               selectedFloorTab === 'all'
                 ? 'bg-black text-white shadow-2xs'
                 : 'text-zinc-600 hover:text-black'
             }`}
           >
-            Semua Lantai (6 Ruang)
+            Semua Lantai ({allRooms.length} Ruang)
+          </button>
+          <button
+            onClick={() => setSelectedFloorTab('1')}
+            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors cursor-pointer ${
+              selectedFloorTab === '1'
+                ? 'bg-zinc-900 text-white shadow-2xs'
+                : 'text-zinc-600 hover:text-black'
+            }`}
+          >
+            🏢 Lantai 1 (2 Ruang)
           </button>
           <button
             onClick={() => setSelectedFloorTab('2')}
-            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${
+            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors cursor-pointer ${
               selectedFloorTab === '2'
                 ? 'bg-red-600 text-white shadow-2xs'
                 : 'text-zinc-600 hover:text-black'
@@ -267,7 +278,7 @@ export const TimelineView: React.FC<TimelineViewProps> = ({
           </button>
           <button
             onClick={() => setSelectedFloorTab('3')}
-            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${
+            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors cursor-pointer ${
               selectedFloorTab === '3'
                 ? 'bg-orange-600 text-white shadow-2xs'
                 : 'text-zinc-600 hover:text-black'
